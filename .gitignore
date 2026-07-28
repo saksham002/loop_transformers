@@ -1,0 +1,18 @@
+# Local run artifacts — checkpoints and logs live under /data and ~/logs, but
+# wandb also drops per-run directories here.
+wandb/
+*.png
+
+# Machine-specific scheduler state, regenerated at runtime.
+blacklist.txt
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+
+# Editor / tooling
+.claude/
+.DS_Store
