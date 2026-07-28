@@ -43,20 +43,23 @@ mechanistic argument.
 | `loop_transformers/tasks.py` | Cayley tables and prefix-product sampling |
 | `loop_transformers/model.py` | Weight-tied looped transformer, both gradient arms |
 | `loop_transformers/train.py` | Training loop, curricula, eval, checkpoints, wandb |
-| `grid2.sbatch`, `launch_grid2.sh` | Current grid: one cell per job |
-| `relaunch_failed.py` | Resubmits failures, blacklists bad nodes |
-| `collect_results.py` | Regenerates the results table in `experiments.md` |
-| `plot_results.py` | Summary figures from wandb |
+| `scripts/train.sbatch` | One grid cell: `TASK SCALE ARM SCHED SEED [--horizon]` |
+| `scripts/launch.sh` | Submits the whole grid |
+| `scripts/watch.sh` | Progress milestones, Slack summaries |
+| `scripts/relaunch.py` | Resubmits failures, blacklists bad nodes |
+| `analysis/collect_results.py` | Regenerates the results table in `experiments.md` |
+| `analysis/plot_results.py` | Summary figures from wandb |
 | `tests/` | Group axioms, prefix products, gradient-equivalence proof |
+| `scratch/` | Untracked: superseded launchers and one-off utilities |
 
 ## Running
 
 ```bash
 uv venv /path/to/env && uv pip install -e ".[dev]"
 python -m pytest tests/ -q
-./launch_grid2.sh                 # submit the grid (SLURM)
-python collect_results.py         # refresh the results table
-python plot_results.py            # write figures
+./scripts/launch.sh                  # submit the grid (SLURM)
+python analysis/collect_results.py   # refresh the results table
+python analysis/plot_results.py      # write figures
 ```
 
 Single-run example:

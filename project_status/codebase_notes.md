@@ -7,10 +7,13 @@
 | `loop_transformers/tasks.py` | Cayley tables for Z2/S4/A5; prefix products via `lax.scan` |
 | `loop_transformers/model.py` | Weight-tied looped transformer; both gradient arms |
 | `loop_transformers/train.py` | Training loop, curriculum, eval, orbax checkpoints, wandb |
-| `grid.sbatch` | One grid cell: `TASK SCALE ARM SCHED SEED` |
-| `launch_grid.sh` | Submits all 48; optional arg = comma-separated nodes to exclude |
-| `relaunch_failed.py` | Polls sacct, resubmits failures, blacklists bad-wandb nodes |
-| `collect_results.py` | Pulls wandb summaries, writes the table into `experiments.md` |
+| `scripts/train.sbatch` | One grid cell: `TASK SCALE ARM SCHED SEED [--horizon]` |
+| `scripts/launch.sh` | Submits the grid; scale-m cells go to `general` with 2 GPUs |
+| `scripts/watch.sh` | Milestone progress + Slack summaries |
+| `scripts/relaunch.py` | Polls sacct, resubmits failures, blacklists bad nodes |
+| `analysis/collect_results.py` | Pulls wandb summaries, writes the table into `experiments.md` |
+| `analysis/plot_results.py` | Summary figures from wandb |
+| `scratch/` | Untracked: superseded launchers, smoke tests, one-off utilities |
 | `tests/test_setup.py` | 9 tests incl. the gradient-equivalence proof for stopgrad |
 
 Env: `/data/user_data/saksham3/uv/loop/` (jax 0.10.2 + CUDA12, flax 0.12.8,
@@ -67,7 +70,7 @@ simultaneously on one node exceeded the 90s default and raised `CommError`.
 Worse, the orphaned `wandb-core` child kept the SLURM cgroup alive, so the job
 showed RUNNING with frozen logs, holding a GPU while training nothing. Now:
 3 retries at 120s, then a loud `WANDB_INIT_FAILED node=<host>` and a hard exit so
-`relaunch_failed.py` can blacklist the node and resubmit. Submissions are
+`scripts/relaunch.py` can blacklist the node and resubmit. Submissions are
 staggered 3s apart.
 
 **Offline fallback is deliberately removed.** Every run must land in wandb; a

@@ -1,5 +1,6 @@
 #!/bin/bash
-# 28 runs:
+# Submit the grid: 28 runs.
+#
 #   Z60  (scale s): 2x2 ablation {bptt,stopgrad} x {fixed,curr}  + paper replication
 #   S4   (scale m): paper replication
 #   A5   (scale m): paper replication, with the horizon curriculum per the paper
@@ -22,7 +23,7 @@ submit() {  # task scale arm sched seed [horizon]
     local GRES="--gres=gpu:1"
     local PART=""
     [ "$2" = "m" ] && GRES="--gres=gpu:L40S:2" && PART="--partition=general"
-    sbatch ${EXCL} ${GRES} ${PART} --job-name="p_$1_$3_$4_s$5" grid2.sbatch "$@" >/dev/null
+    sbatch ${EXCL} ${GRES} ${PART} --job-name="p_$1_$3_$4_s$5" scripts/train.sbatch "$@" >/dev/null
     sleep 3
 }
 

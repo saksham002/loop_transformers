@@ -14,7 +14,7 @@ from pathlib import Path
 LOG_DIR = Path("/home/saksham3/logs/loop")
 REPO = Path("/home/saksham3/projects/AIRe/loop_transformers")
 BLACKLIST = REPO / "blacklist.txt"
-SCALES = {"parity": "s", "z60": "s", "s4": "m", "a5": "m"}
+SCALES = {"z60": "s", "s4": "m", "a5": "m"}
 POLL_SECONDS = 300
 
 
@@ -41,7 +41,7 @@ def grid_jobs():
         if len(parts) < 3:
             continue
         jobid, name, state = parts[0], parts[1], parts[2].split()[0]
-        if name.startswith(("g_", "p_")):
+        if name.startswith("p_"):
             jobs[name] = (jobid, state)
     return jobs
 
@@ -76,7 +76,7 @@ def scan_all_logs_for_faults():
     the requeued job can land on the same dead node again.
     """
     nodes = set()
-    for log in LOG_DIR.glob("[gp]_*.out"):
+    for log in LOG_DIR.glob("p_*.out"):
         text = log.read_text(errors = "ignore")
         # A run that reached [done] proves the node works; any error after that
         # is teardown noise and must not condemn the node.
@@ -90,10 +90,10 @@ def scan_all_logs_for_faults():
 
 
 def resubmit(name, blacklist):
-    prefix, task, arm, sched, seed = name.split("_")
+    _, task, arm, sched, seed = name.split("_")
     seed = seed.lstrip("s")
     excl = f"--exclude={','.join(sorted(blacklist))}" if blacklist else ""
-    script = "grid2.sbatch" if prefix == "p" else "grid.sbatch"
+    script = "scripts/train.sbatch"
     # Scale-m runs need a 48GB card; the 40GB A100 nodes OOM at T=32 batch 256.
     # Scale-m needs 2 GPUs; preempt has no L40S node with 2 free, so use general.
     gres = "--gres=gpu:L40S:2 --partition=general" if SCALES[task] == "m" else ""

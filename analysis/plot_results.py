@@ -6,7 +6,7 @@ Writes into project_status/figures/:
   fig3_train_loss.png     final train loss vs the marginal-predictor floor
   fig4_curves.png         training-loss curves, seeds overlaid
 
-Usage:  python plot_results.py [--out DIR]
+Usage:  python analysis/plot_results.py [--out DIR]
 """
 
 import argparse
