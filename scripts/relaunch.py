@@ -17,6 +17,19 @@ BLACKLIST = REPO / "blacklist.txt"
 SCALES = {"z60": "s", "s4": "m", "a5": "m"}
 POLL_SECONDS = 300
 
+# A hung job stays RUNNING forever and never reaches a terminal state, so a
+# state-driven check cannot see it: it burns its whole time limit doing nothing.
+# Detect it from two signals that must BOTH hold, because either alone gives
+# false positives — a long eval can go quiet, and a slow job can look idle:
+#   1. the log has not advanced in STALL_MINUTES ([step] prints every 100 steps,
+#      so even a slow run writes something every couple of minutes)
+#   2. CPU time is far below wall time. XLA compilation pins the CPU, so a job
+#      that is merely compiling still fails this test and is left alone.
+# Observed: hung jobs sat at ~2 min CPU over 26-80 min elapsed, while a healthy
+# peer had 47 min CPU over 26 min elapsed (multi-core, so ratio > 1).
+STALL_MINUTES = 25
+STALL_CPU_RATIO = 0.25
+
 
 def sh(cmd):
     return subprocess.run(cmd, shell = True, capture_output = True, text = True).stdout.strip()
@@ -89,6 +102,55 @@ def scan_all_logs_for_faults():
     return nodes
 
 
+def _duration_seconds(text):
+    """Parse a SLURM duration: MM:SS, HH:MM:SS, or D-HH:MM:SS."""
+    text = text.strip()
+    if not text:
+        return None
+    days = 0
+    if "-" in text:
+        d, text = text.split("-", 1)
+        days = int(d)
+    parts = [float(p) for p in text.split(":")]
+    while len(parts) < 3:
+        parts.insert(0, 0.0)
+    h, m, s = parts[-3:]
+    return days * 86400 + h * 3600 + m * 60 + s
+
+
+def newest_log(name):
+    logs = sorted(LOG_DIR.glob(f"{name}_*.out"), key = lambda p: p.stat().st_mtime)
+    return logs[-1] if logs else None
+
+
+def stalled(name, jobid):
+    """True if this RUNNING job is alive but doing no work.
+
+    Returns False whenever either signal is missing, so an unreadable log or an
+    sstat hiccup can never cause a healthy job to be killed.
+    """
+    log = newest_log(name)
+    if log is None:
+        return False
+    quiet_min = (time.time() - log.stat().st_mtime) / 60
+    if quiet_min < STALL_MINUTES:
+        return False
+
+    elapsed = _duration_seconds(sh(f"squeue -h -j {jobid} -o '%M'"))
+    cpu = _duration_seconds(sh(f"sstat -j {jobid}.batch --format=AveCPU -n -P"))
+    if not elapsed or cpu is None:
+        return False
+    if cpu / elapsed >= STALL_CPU_RATIO:
+        return False
+
+    print(
+        f"  STALLED {name}: quiet {quiet_min:.0f}min, "
+        f"cpu {cpu / 60:.1f}min over {elapsed / 60:.1f}min elapsed",
+        flush = True,
+    )
+    return True
+
+
 def resubmit(name, blacklist):
     _, task, arm, sched, seed = name.split("_")
     seed = seed.lstrip("s")
@@ -96,7 +158,9 @@ def resubmit(name, blacklist):
     script = "scripts/train.sbatch"
     # Scale-m runs need a 48GB card; the 40GB A100 nodes OOM at T=32 batch 256.
     # Scale-m needs 2 GPUs; preempt has no L40S node with 2 free, so use general.
-    gres = "--gres=gpu:L40S:2 --partition=general" if SCALES[task] == "m" else ""
+    # general requires QOS=normal; preempt_qos is rejected there.
+    gres = ("--gres=gpu:L40S:2 --partition=general --qos=normal"
+            if SCALES[task] == "m" else "")
     # The paper applies the horizon curriculum to chained A5 only.
     horizon = "--horizon" if (sched == "paper" and task == "a5") else ""
     cmd = (
@@ -135,6 +199,14 @@ def main():
                 save_blacklist(blacklist)
                 print(f"  blacklisted {node} (node-level fault)", flush = True)
             resubmit(name, blacklist)
+
+        # Hung jobs never reach a terminal state, so they must be killed before
+        # they can be resubmitted; otherwise they hold a GPU until the time limit.
+        for name, (jobid, state) in jobs.items():
+            if state == "RUNNING" and stalled(name, jobid):
+                sh(f"scancel {jobid}")
+                print(f"  cancelled stalled {name} ({jobid})", flush = True)
+                resubmit(name, blacklist)
 
         if jobs and running == 0 and not bad:
             print(f"ALL_GRID_JOBS_DONE completed={done}/{len(jobs)}", flush = True)

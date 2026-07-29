@@ -77,6 +77,16 @@ staggered 3s apart.
 failure should surface as a job failure the relauncher acts on, not a silently
 degraded run.
 
+**Hung jobs are invisible to state-driven monitoring.** Two runs sat RUNNING for
+26 and 80 minutes having written nothing past `wandb.init`, with ~2 min of CPU
+each while a healthy peer had 47 min over the same wall time — blocked on I/O,
+most likely the networked `/data` mount holding the checkpoints. They never reach
+a terminal state, so `relaunch.py` could not see them and they would have burned
+the full 6h limit. It now flags a RUNNING job only when the log has been quiet
+>25 min AND `AveCPU/elapsed < 0.25`; both conditions are required because a long
+eval can go quiet and a compiling job looks slow but pins the CPU. Stalled jobs
+are cancelled and resubmitted.
+
 **preempt requeues automatically.** Checkpoints every 2000 steps; an interrupted
 write leaves a `*.orbax-checkpoint-tmp` dir which `latest_step()` correctly
 ignores, so resume falls back to the last complete checkpoint.

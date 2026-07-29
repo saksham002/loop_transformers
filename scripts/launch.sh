@@ -22,7 +22,8 @@ submit() {  # task scale arm sched seed [horizon]
     # scale-m runs queue on general instead, where 19 L40S nodes have capacity.
     local GRES="--gres=gpu:1"
     local PART=""
-    [ "$2" = "m" ] && GRES="--gres=gpu:L40S:2" && PART="--partition=general"
+    # general requires QOS=normal; preempt_qos is rejected outright there.
+    [ "$2" = "m" ] && GRES="--gres=gpu:L40S:2" && PART="--partition=general --qos=normal"
     sbatch ${EXCL} ${GRES} ${PART} --job-name="p_$1_$3_$4_s$5" scripts/train.sbatch "$@" >/dev/null
     sleep 3
 }
