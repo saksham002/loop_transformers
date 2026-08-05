@@ -3,9 +3,9 @@
 # a bulleted Slack summary every MILESTONE completions. Exits when all are done.
 # State lives in ~/logs, never /tmp (rotated, would break resumes).
 
-STATE=/home/saksham3/logs/loop/watch2_state.txt
-MILESTONE=7
-TOTAL=28
+STATE=/home/saksham3/logs/loop/watch3_state.txt
+MILESTONE=4
+TOTAL=12
 
 mkdir -p /home/saksham3/logs/loop
 last_reported=$(cat "$STATE" 2>/dev/null || echo 0)
@@ -14,7 +14,7 @@ while true; do
     # Newest entry per job name: a resubmitted job has several sacct rows and
     # taking the first would report a stale FAILED forever.
     stats=$(sacct -X --starttime=now-2days --format=JobName%40,State -n -P 2>/dev/null \
-            | grep "^p_" | awk -F'|' '{last[$1]=$2} END {for (n in last) print n"|"last[n]}')
+            | grep "currmax" | awk -F'|' '{last[$1]=$2} END {for (n in last) print n"|"last[n]}')
 
     done_n=$(echo "$stats" | grep -c "COMPLETED")
     run_n=$(echo "$stats"  | grep -cE "RUNNING")

@@ -88,7 +88,12 @@ def parse_args():
     p.add_argument("--curriculum", action = "store_true")
     # "paper" reproduces Appendix D exactly: stages {4,8,16,32}, lengths sampled
     # uniformly within a stage, promotion at per-token acc >= 0.98, T = n.
-    p.add_argument("--schedule", choices = ["fixed", "curr", "paper"], default = None)
+    # "currmax" is `curr` with the stage length read as n_max and lengths
+    # sampled uniformly within the stage, as the paper's curriculum does —
+    # isolating that one factor from the rest of the paper recipe.
+    p.add_argument(
+        "--schedule", choices = ["fixed", "curr", "currmax", "paper"], default = None
+    )
     # Horizon curriculum; the paper applies it to chained A5/S5 only.
     p.add_argument("--horizon", action = "store_true")
     p.add_argument("--grid-every", type = int, default = GRID_EVERY)
@@ -317,10 +322,11 @@ def main():
             f"promote>={PAPER_PROMOTE_ACC} horizon={args.horizon} T=n",
             flush = True,
         )
-    elif sched == "curr":
+    elif sched in ("curr", "currmax"):
         total_steps = CURRICULUM_STEPS
         stages = " ".join(f"n{n}:{s}" for n, s in CURRICULUM)
-        print(f"[curriculum] {stages}  total={total_steps}", flush = True)
+        how = "n~U[1,n_max]" if sched == "currmax" else "n fixed per stage"
+        print(f"[curriculum] {stages}  total={total_steps}  {how}", flush = True)
     else:
         total_steps = args.steps
 
@@ -410,6 +416,14 @@ def main():
             # n is a function of the step, so a resumed job lands back in the
             # right stage without extra bookkeeping.
             n = curriculum_n(step)
+            horizon = n
+        elif sched == "currmax":
+            # Same stage ladder as `curr`, but the stage value is n_max and the
+            # length is drawn uniformly below it, as the paper's curriculum does.
+            n_max = curriculum_n(step)
+            n = int(
+                np.random.default_rng(args.seed * 1000003 + step).integers(1, n_max + 1)
+            )
             horizon = n
         else:
             n = args.n

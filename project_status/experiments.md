@@ -19,15 +19,17 @@ Two things are being measured, and they are kept separate.
 **1. Replication of the paper's method** — Z₆₀, S₄, A₅, 4 seeds each.
 Reproduces Appendix D with one intentional deviation, noted below.
 
-**2. Our 2×2 ablation** — Z₆₀ only, 4 seeds per cell.
+**2. Our 2×2 ablation** — Z₆₀, S₄, A₅, 4 seeds per cell.
 
 | Factor | Levels |
 |---|---|
 | Gradient | `bptt` (backprop through all T) vs `stopgrad` (detach at h^{T-1}) |
 | Schedule | `fixed` (n = T = 32 throughout) vs `curr` (n = 1,2,4,8,16,32 × 10k) |
 
-Z₆₀ carries 5 cells (4 ablation + 1 replication); S₄ and A₅ carry the
-replication cell only. 7 configurations × 4 seeds = **28 runs**.
+Each task carries 5 cells (4 ablation + 1 replication).
+15 configurations × 4 seeds = **60 runs**: the S₄/A₅ ablations were completed
+in the earlier grid, and the replication cells were completed in the newer
+28-run launch.
 
 ## The `paper` arm, exactly as specified
 
@@ -68,31 +70,44 @@ of its selection grid, so it is excluded from these results. The task remains
 implemented in `loop_transformers/tasks.py` and is still covered by the tests.
 
 <!-- RESULTS -->
-# Experiments
+# Results
 
-2x2x3 factorial: {bptt, stopgrad} x {fixed-n, curriculum} x {parity, S4, A5}, 4 seeds (86-89), 60k steps each.
+Each task carries the 2x2 ablation {bptt, stopgrad} x {fixed-n, curriculum} plus the paper replication. 4 seeds (86-89), 60k steps each; 60 runs total.
 
-Values are mean±sd over completed seeds. Chance: parity token 0.5, S4 0.0417, A5 0.0167; seq chance is ~0 at n=32.
+`paper` = Appendix D exactly: stages n_max in {4,8,16,32}, lengths sampled uniformly within a stage, promotion at per-token acc >= 0.98, T = n; horizon curriculum on A5 only.
+
+Values are mean±sd over completed seeds. Token chance: Z60 0.0167, S4 0.0417, A5 0.0167; seq chance is ~0 at n=32.
 
 
 ## z60
 
 | arm | schedule | seeds | train loss | n=32 tok | n=32 seq | n=64 tok | n=64 seq | n=128 tok | n=128 seq |
 |---|---|---|---|---|---|---|---|---|---|
-| bptt | fixed | 0 | — | — | — | — | — | — | — |
-| bptt | curr | 3 | 0.1097±0.0593 | 0.9626±0.0379 | 0.6554±0.2725 | 0.4026±0.1206 | 0.0000±0.0000 | 0.0414±0.0147 | 0.0000±0.0000 |
+| bptt | fixed | 4 | 3.1718±0.9530 | 0.1303±0.1067 | 0.0000±0.0000 | 0.0375±0.0429 | 0.0000±0.0000 | 0.0274±0.0220 | 0.0000±0.0000 |
+| bptt | curr | 4 | 0.1023±0.0506 | 0.9693±0.0337 | 0.7036±0.2424 | 0.4264±0.1094 | 0.0000±0.0000 | 0.0421±0.0121 | 0.0000±0.0000 |
 | stopgrad | fixed | 4 | 0.7611±1.1793 | 0.8015±0.2876 | 0.6095±0.4118 | 0.6081±0.3965 | 0.1407±0.1237 | 0.3172±0.2024 | 0.0000±0.0000 |
 | stopgrad | curr | 4 | 0.2824±0.2196 | 0.8986±0.0888 | 0.6503±0.2785 | 0.7059±0.0873 | 0.0444±0.0386 | 0.3632±0.0425 | 0.0000±0.0000 |
-| bptt | **paper** | 3 | 0.5489±0.5180 | 0.6026±0.5128 | 0.2804±0.3508 | 0.0804±0.0587 | 0.0000±0.0000 | 0.0217±0.0045 | 0.0000±0.0000 |
+| stopgrad | currmax | 4 | 0.1470±0.0681 | 0.9022±0.0588 | 0.5829±0.2315 | 0.5549±0.1049 | 0.0004±0.0007 | 0.2843±0.0516 | 0.0000±0.0000 |
+| bptt | **paper** | 4 | 0.2238±0.1363 | 0.7972±0.2141 | 0.2804±0.2864 | 0.1016±0.0242 | 0.0000±0.0000 | 0.0248±0.0010 | 0.0000±0.0000 |
 
 ## s4
 
 | arm | schedule | seeds | train loss | n=32 tok | n=32 seq | n=64 tok | n=64 seq | n=128 tok | n=128 seq |
 |---|---|---|---|---|---|---|---|---|---|
-| bptt | **paper** | 0 | — | — | — | — | — | — | — |
+| bptt | fixed | 4 | 2.7851±0.3334 | 0.1071±0.0512 | 0.0000±0.0000 | 0.0587±0.0333 | 0.0000±0.0000 | 0.0502±0.0168 | 0.0000±0.0000 |
+| bptt | curr | 4 | 2.9329±0.3924 | 0.1050±0.0738 | 0.0000±0.0000 | 0.0791±0.0440 | 0.0000±0.0000 | 0.0541±0.0152 | 0.0000±0.0000 |
+| stopgrad | fixed | 4 | 3.1735±0.0029 | 0.0555±0.0066 | 0.0000±0.0000 | 0.0421±0.0002 | 0.0000±0.0000 | 0.0417±0.0001 | 0.0000±0.0000 |
+| stopgrad | curr | 4 | 0.0542±0.0203 | 0.9860±0.0027 | 0.9165±0.0119 | 0.8535±0.0389 | 0.1918±0.0984 | 0.4520±0.0223 | 0.0000±0.0000 |
+| stopgrad | currmax | 4 | 0.0680±0.0266 | 0.9724±0.0134 | 0.8475±0.0637 | 0.6852±0.0412 | 0.0038±0.0020 | 0.2378±0.0623 | 0.0000±0.0000 |
+| bptt | **paper** | 4 | 0.0510±0.0189 | 0.9931±0.0048 | 0.9487±0.0222 | 0.9875±0.0139 | 0.8739±0.1346 | 0.7931±0.1816 | 0.2340±0.2816 |
 
 ## a5
 
 | arm | schedule | seeds | train loss | n=32 tok | n=32 seq | n=64 tok | n=64 seq | n=128 tok | n=128 seq |
 |---|---|---|---|---|---|---|---|---|---|
-| bptt | **paper** | 2 | 0.7317±0.6248 | 0.3435±0.5657 | 0.3245±0.5621 | 0.2721±0.4412 | 0.0000±0.0000 | 0.0355±0.0326 | 0.0000±0.0000 |
+| bptt | fixed | 4 | 3.9081±0.0800 | 0.0621±0.0189 | 0.0000±0.0000 | 0.0168±0.0003 | 0.0000±0.0000 | 0.0170±0.0001 | 0.0000±0.0000 |
+| bptt | curr | 4 | 2.4919±1.7729 | 0.4356±0.4497 | 0.2961±0.3726 | 0.2951±0.3115 | 0.0000±0.0000 | 0.0249±0.0149 | 0.0000±0.0000 |
+| stopgrad | fixed | 4 | 4.0871±0.0049 | 0.0233±0.0028 | 0.0000±0.0000 | 0.0171±0.0000 | 0.0000±0.0000 | 0.0170±0.0001 | 0.0000±0.0000 |
+| stopgrad | curr | 4 | 0.1449±0.0516 | 0.9598±0.0201 | 0.8134±0.0905 | 0.7837±0.0558 | 0.1495±0.0770 | 0.4030±0.0308 | 0.0000±0.0000 |
+| stopgrad | currmax | 4 | 0.3097±0.2669 | 0.8044±0.1649 | 0.3879±0.3819 | 0.4492±0.1829 | 0.0000±0.0000 | 0.1796±0.1477 | 0.0000±0.0000 |
+| bptt | **paper** | 4 | 0.0866±0.0521 | 0.9764±0.0159 | 0.9227±0.0384 | 0.7499±0.0887 | 0.1356±0.1601 | 0.2120±0.1843 | 0.0000±0.0000 |

@@ -30,8 +30,8 @@ at every position `i`. Implemented for Z2 (parity), Z60, S4 and A5.
 | Gradient | `bptt` (through all T) vs `stopgrad` (detach at `h^{T-1}`) |
 | Schedule | `fixed` (n = T = 32), `curr` (n = 1,2,4,8,16,32), `paper` (Appendix D) |
 
-Z60 carries the 2x2 ablation plus the paper replication; S4 and A5 carry the
-replication only. Four seeds per cell, 60k steps each. See
+Each task carries the 2x2 ablation plus the paper replication. Four seeds per
+cell, 60k steps each, for 60 runs total. See
 [`project_status/experiments.md`](project_status/experiments.md) for the design
 and results, and [`project_status/ideas.md`](project_status/ideas.md) for the
 mechanistic argument.

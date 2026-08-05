@@ -32,6 +32,18 @@ CELLS = [
     ("stopgrad", "curr", "stopgrad · curriculum", "#8172B2"),
     ("bptt", "paper", "paper replication", "#CCB974"),
 ]
+DESIGN = {
+    task: [("bptt", "fixed"), ("bptt", "curr"),
+           ("stopgrad", "fixed"), ("stopgrad", "curr"),
+           ("stopgrad", "currmax"), ("bptt", "paper")]
+    for task in TASKS
+}
+EXPECTED_RUNS = {
+    f"{task}_{arm}_{sched}_s{seed}"
+    for task, cells in DESIGN.items()
+    for arm, sched in cells
+    for seed in range(86, 90)
+}
 
 
 def fetch():
@@ -39,12 +51,11 @@ def fetch():
     api = wandb.Api()
     out = defaultdict(list)
     for r in api.runs(f"{ENTITY}/{PROJECT}"):
-        parts = r.name.split("_")
-        if len(parts) < 4 or r.state != "finished":
+        if r.name not in EXPECTED_RUNS or r.state != "finished":
             continue
+        parts = r.name.split("_")
         task, arm, sched = parts[0], parts[1], parts[2]
-        if task in TASKS:
-            out[(task, arm, sched)].append(r)
+        out[(task, arm, sched)].append(r)
     return out
 
 

@@ -208,7 +208,10 @@ def main():
                 print(f"  cancelled stalled {name} ({jobid})", flush = True)
                 resubmit(name, blacklist)
 
-        if jobs and running == 0 and not bad:
+        # Only stop when every job has actually COMPLETED. Keying on "nothing
+        # active" exits early: a preempted job is briefly neither running nor
+        # requeued, and the loop would declare victory mid-flight.
+        if jobs and done == len(jobs) and not bad:
             print(f"ALL_GRID_JOBS_DONE completed={done}/{len(jobs)}", flush = True)
             return
         time.sleep(POLL_SECONDS)

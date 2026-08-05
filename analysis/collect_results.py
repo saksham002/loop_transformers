@@ -2,6 +2,7 @@
 project_status/experiments.md, averaging over seeds."""
 
 from collections import defaultdict
+import math
 from pathlib import Path
 from statistics import mean, stdev
 
@@ -11,16 +12,19 @@ ENTITY = "sakshamsingh2002-carnegie-mellon-university"
 PROJECT = "loop_transformers"
 OUT = Path("/home/saksham3/projects/AIRe/loop_transformers/project_status/experiments.md")
 TASKS = ["z60", "s4", "a5"]
-ARMS = ["bptt", "stopgrad"]
-SCHEDS = ["fixed", "curr", "paper"]
 
-# Which (arm, schedule) cells each task actually runs. Z60 carries the 2x2
-# ablation plus the replication; S4 and A5 are replication-only.
+# Every task carries the 2x2 ablation plus the paper replication.
 DESIGN = {
-    "z60": [("bptt", "fixed"), ("bptt", "curr"),
-            ("stopgrad", "fixed"), ("stopgrad", "curr"), ("bptt", "paper")],
-    "s4": [("bptt", "paper")],
-    "a5": [("bptt", "paper")],
+    task: [("bptt", "fixed"), ("bptt", "curr"),
+           ("stopgrad", "fixed"), ("stopgrad", "curr"),
+           ("stopgrad", "currmax"), ("bptt", "paper")]
+    for task in TASKS
+}
+EXPECTED_RUNS = {
+    f"{task}_{arm}_{sched}_s{seed}"
+    for task, cells in DESIGN.items()
+    for arm, sched in cells
+    for seed in range(86, 90)
 }
 KEYS = [
     ("final/train_loss", "loss"),
@@ -35,7 +39,7 @@ KEYS = [
 
 def fmt(vals):
     """mean +/- sd over seeds, or '-' when nothing finished."""
-    vals = [v for v in vals if v is not None]
+    vals = [v for v in vals if v is not None and not math.isnan(v)]
     if not vals:
         return "—"
     if len(vals) == 1:
@@ -51,29 +55,27 @@ def main():
     cell = defaultdict(lambda: defaultdict(list))
     seeds = defaultdict(set)
     for r in runs:
+        if r.name not in EXPECTED_RUNS or r.state != "finished":
+            continue
         parts = r.name.split("_")
-        if len(parts) < 4:
-            continue
         task, arm, sched, seed = parts[0], parts[1], parts[2], parts[3]
-        if task not in TASKS or arm not in ARMS or sched not in SCHEDS:
-            continue
-        if r.state != "finished":
-            continue
         seeds[(task, arm, sched)].add(seed)
         for key, short in KEYS:
             v = r.summary.get(key)
             # A job preempted after its last step resumes with nothing left to
             # run, so final/train_loss is never written. wandb's summary still
             # holds the last logged train/loss, so fall back to that.
-            if v is None and key == "final/train_loss":
+            if key == "final/train_loss" and (
+                v is None or (isinstance(v, float) and math.isnan(v))
+            ):
                 v = r.summary.get("train/loss")
             cell[(task, arm, sched)][short].append(v)
 
     lines = []
     lines.append("# Results\n")
-    lines.append("Z60 carries the 2x2 ablation {bptt, stopgrad} x {fixed-n, "
-                 "curriculum} plus the paper replication; S4 and A5 carry the "
-                 "replication only. 4 seeds (86-89), 60k steps each.\n")
+    lines.append("Each task carries the 2x2 ablation {bptt, stopgrad} x "
+                 "{fixed-n, curriculum} plus the paper replication. "
+                 "4 seeds (86-89), 60k steps each; 60 runs total.\n")
     lines.append("`paper` = Appendix D exactly: stages n_max in {4,8,16,32}, "
                  "lengths sampled uniformly within a stage, promotion at "
                  "per-token acc >= 0.98, T = n; horizon curriculum on A5 only.\n")
